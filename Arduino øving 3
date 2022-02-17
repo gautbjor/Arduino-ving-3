@@ -1,0 +1,139 @@
+// C++ code
+//
+
+const int redLed = 9; // gir beskrivande namn til pin-ane
+const int greenLed = 8;
+const int LED1 = 12; // led til spelar 1
+const int LED2 = 5;  // led til spealr 2
+const int SW1 = 13; // knapp til spelar 1
+const int SW2 = 4;  // knapp til spelar 2
+const int buzzerPin = 11;
+const int randomPin = A0; // pin til randomseed
+int buttonstate1 ; // held tilsanden til spelar 1 sin knapp
+int buttonstate2 ; // held tilstanden til spelar 2 sin knapp
+
+int winner = 0;  // opprettar variablar
+int winnerbeep = 750;  // frekvensen til vinnarlyden
+int fault = 0;  // lagrar kven som var for tidleg
+int faultbeep = 200;  // frekvensen til for tidleg lyden
+int wait = 0;  // lagrar tid i millisekund
+int now = 0;  // lagrar tid i millisekund
+
+unsigned long lengde = 5; // kor lenge buuzzeren skal være på i millis
+
+void setup(){
+  pinMode(redLed, OUTPUT);
+  pinMode(greenLed, OUTPUT); // gir pinnane funksjon
+  pinMode(LED1, OUTPUT);
+  pinMode(LED2, OUTPUT);
+  pinMode(SW1, INPUT);
+  pinMode(SW2, INPUT);
+  pinMode(buzzerPin, OUTPUT);
+  randomSeed(analogRead(randomPin)); //opprettar randomseed til random funksjonen
+  
+}
+void vinn(int pin){ // funskjon for vinnar melodi og lys, parameter : vinnaren sin LED
+  int tid = millis(); // referansetida til kor lenge lys og lyd skal vare.
+  int notid = millis(); // den oppdaterande tida til kor lenge lyd og lys skal vare.
+  int ledtid = millis(); // referansetida til led blinking
+  int x = winnerbeep; // gir x starteverdien til vinnar melodi
+  while ((notid - tid) < 2000){ // sjekkar om og køyre til det har gått 2000 ms.
+    x = x + 1; // alarmfrekvensen aukar med 1 kvar gjennomkøyring
+    notid = millis(); // oppdaterar notid
+    for (int i=x-1; i<=x; i++){ // for løkke som køyre ein gong, men går igjen i while løkka.
+      tone(buzzerPin, i, lengde); // aktiverar buzzeren med frekvens lik x.
+      int lednotid = millis(); // den oppdaterande delen av led blinking tidtakinga
+      if (lednotid - ledtid < 80){ // skrur vinnaren sin led og rgb på i 80 ms.
+        digitalWrite(pin, HIGH);
+        digitalWrite(greenLed, HIGH);  
+      }
+      if (lednotid - ledtid > 80){ // skrur av vinnar led og rgb i 80 ms
+        digitalWrite(pin, LOW);
+        digitalWrite(greenLed, LOW);
+      }
+      if (lednotid -ledtid > 160){ // aktivera når det har gått over 160 ms.
+        ledtid = lednotid; // "resettar" tida til blinkinga, tilbake til 0.
+      }
+    }   
+  }
+  digitalWrite(pin, LOW);
+  digitalWrite(greenLed, LOW); // skrur begge led diodene av i tilfelle dei var på
+}                              // når while løkka gjekk over 2000ms og lukka seg.
+
+void tooSoon(int pin){ // veldig lik den over, men når ein spelar har trykt for tidleg
+  int tid = millis();
+  int notid = millis();
+  int ledtid = millis();
+  int x = faultbeep; // gir x frekvensen til tapar melodi, 200
+  while ((notid - tid) < 2000){
+    x = x + 1;
+    notid = millis();
+    for (int i=x-1; i<=x; i++){  // for løkka gje ikkje noko, konstant frekvens
+      tone(buzzerPin, 200, lengde);
+      int lednotid = millis();
+      if (lednotid - ledtid < 80){
+        digitalWrite(pin, HIGH);
+        digitalWrite(redLed, HIGH);
+      }
+      if (lednotid - ledtid > 80){
+        digitalWrite(pin, LOW);
+        digitalWrite(redLed, LOW); // no blinkar rgb med raudt istaden for grøn
+      }
+      if (lednotid -ledtid > 160){
+        ledtid = lednotid;
+      }
+    }
+  }
+  digitalWrite(pin, LOW);
+  digitalWrite(redLed, LOW);
+}
+
+void loop(){
+  int randNum = random(3000, 6000); // opprettar eit random tal mellom 3 og 6000
+  while (digitalRead(SW1) == LOW && digitalRead(SW2) == LOW){ // køyre når ingen av knappane er trykt
+    digitalWrite(redLed, LOW); // har lagt til ei whileøkke som startar spelet etter
+    digitalWrite(greenLed, LOW); // ein av knappane er trykt inn
+  }                             // passar også på at ingen av ledfargane lyser
+  
+  while (digitalRead(SW1) == HIGH || digitalRead(SW2) == HIGH);// køyre når ein av knappane er inne
+                                                  // så knappen må bli sluppet før spelet starta
+                                                  
+  wait = millis(); // lagrar kor mange ms som har gått sidan start
+  now = millis();
+  digitalWrite(redLed, HIGH); // skrur på rødt lys(spelet starta)
+  while ((now - wait) < randNum){ // køyre medan den oppdaterte tida - referansetida er mindre enn
+    now = millis();         // det genererte random talet.  oppdatera now si tid
+    if (digitalRead(SW1) == HIGH){ 
+      fault = 1;
+      digitalWrite(redLed, LOW);
+      break;                        // denne if og else if sjekkar om knappen til spelarane blir 
+    }                               // trykt medan det rgb er raud, og viss det skjer skrur dei
+    else if (digitalRead(SW2) == HIGH){ // av det raude lyset, lagrar kven det var som trykte og
+      fault = 2;                        // bryt while løkka som ventar på å overstige random tida.
+      digitalWrite(redLed, LOW);
+      break;
+    }
+  }
+  if (fault == 1){ // var det spelar 1 som trykte for tidleg, blir for tidleg funksjonen aktivert
+    tooSoon(LED1); // for spelar 1 sin led.
+  }
+  else if (fault == 2){ // var det ikkje 1, sjekkar denne om spelar 2 var for tidleg, og viss den
+    tooSoon(LED2);      // var det, kallar den for tidleg for led 2.
+  }
+  else {  // var ingen for tidleg, blir denne køyrd, når whilen opna seg naturleg
+    digitalWrite(redLed, LOW); // raudt lys skrur seg av
+    digitalWrite(greenLed, HIGH);  // grønt kjem på
+    while (winner == 0){ // køyre så lenge ingen av spelerane har trykt på knappen
+      if (digitalRead(SW1) == HIGH){ // sjekkar om spelar 1 trykke
+        vinn(LED1); // spelar av vinnar-funksjonen for spelar 1
+        winner = 1; // bryt while løkka
+      }
+      else if(digitalRead(SW2) == HIGH){ // sjekkar om spelar 2 trykke
+        vinn(LED2); // aktiverar vinnar-funksjonen for spelar 2 sin led
+        winner = 2; // bryt while løkka
+      }
+    }
+  }
+  fault = 0; // resettar desse to variablane.
+  winner = 0;
+}
